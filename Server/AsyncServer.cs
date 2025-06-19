@@ -13,6 +13,7 @@ namespace Server
     public class PlayerData
     {
         public string id;
+
         public TcpClient client;
         public float x = 0, y = 0, z = 0;
         public bool isShot = false;

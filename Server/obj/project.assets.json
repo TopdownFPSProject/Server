@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\gmlwo\\source\\repos\\Server\\Server\\Server.csproj",
+      "projectUniqueName": "D:\\heejae\\Server\\Server\\Server.csproj",
       "projectName": "Server",
-      "projectPath": "C:\\Users\\gmlwo\\source\\repos\\Server\\Server\\Server.csproj",
+      "projectPath": "D:\\heejae\\Server\\Server\\Server.csproj",
       "packagesPath": "C:\\Users\\gmlwo\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\gmlwo\\source\\repos\\Server\\Server\\obj\\",
+      "outputPath": "D:\\heejae\\Server\\Server\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\gmlwo\\AppData\\Roaming\\NuGet\\NuGet.Config",
