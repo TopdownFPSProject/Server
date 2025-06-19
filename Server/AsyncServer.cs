@@ -5,15 +5,28 @@ using System.Net;
 using System.Net.Sockets;
 using System.Numerics;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Server
 {
+    public class Message
+    {
+        [JsonPropertyName("command")]
+        public string Command { get; set; }
+        [JsonPropertyName("id")]
+        public string Id { get; set; }
+        [JsonPropertyName("target")]
+        public string Target { get; set; } = "all";
+        [JsonExtensionData]
+        public Dictionary<string, object> Data { get; set; } = new();
+    }
+
     public class PlayerData
     {
         public string id;
-
 
         public TcpClient client;
         public float x = 0, y = 0, z = 0;
@@ -53,26 +66,24 @@ namespace Server
         private const double tickRate = 30.0;
         private const double tickInterval = 1000.0 / tickRate;
 
-
         public AsyncServer()
         {
             commandHandlers = new()
             {
                 ["connected"] = new ConnectCommandHandler(),
                 ["disconnected"] = new DisconnectCommandHandler(),
-                ["position"] = new PositionCommandHandler(),
-                ["fire"] = new FireCommandHandler(),
+                //["position"] = new PositionCommandHandler(),
+                //["fire"] = new FireCommandHandler(),
             };
 
-            //게임 별도 쓰레드
-            _ = Task.Run(PlayerMoveAsync);
+            //게임 별도 쓰레드 -> 임시로 주석
+            //_ = Task.Run(PlayerMoveAsync);
         }
 
         public async Task StartAsync(int port)
         {
             listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
-
             Console.WriteLine($"[서버 시작] 포트 {port}");
 
             while (true)
@@ -88,7 +99,7 @@ namespace Server
         private async Task HandleClientAsync(TcpClient client)
         {
             NetworkStream stream = client.GetStream();
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[4096];
 
             try
             {
@@ -120,75 +131,90 @@ namespace Server
                         bodyRead += read;
                     }
 
-                    string message = Encoding.UTF8.GetString(body);
-                    Console.WriteLine($"[받음]{message}");
+                    string json = Encoding.UTF8.GetString(body);
+                    Message msg = JsonSerializer.Deserialize<Message>(json);
 
-                    HandleClientMessage(message, client);
+                    if (msg != null && !string.IsNullOrEmpty(msg.Command))
+                    {
+                        if (commandHandlers.TryGetValue(msg.Command, out ICommandHandler handler))
+                        {
+                            handler.Execute(msg, client, this);
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[알 수 없는 명령] : {msg.Command}");
+                        }
+                    }
                 }
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                Console.WriteLine($"[예외] : {ex.Message}");
+                Console.WriteLine($"[예외] : {e.Message}");
             }
         }
 
         private void HandleClientMessage(string msg, TcpClient client)
         {
-            string[] parts = msg.Split(';', StringSplitOptions.RemoveEmptyEntries);
-
-            if (parts.Length == 0) return;
-
-            string command = parts[0];
-
-            if (commandHandlers.TryGetValue(command, out var handler))
+            Message message;
+            try
             {
-                handler.Execute(parts, client, this);
+                message = JsonSerializer.Deserialize<Message>(msg);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"[JSON] 파싱 오류 : {e.Message}");
+                return;
+            }
+
+            if (message == null || string.IsNullOrEmpty(message.Command)) return;
+
+            if (commandHandlers.TryGetValue(message.Command, out ICommandHandler handler))
+            {
+                handler.Execute(message, client, this);
             }
             else
             {
-                Console.WriteLine($"[알 수 없는 명령] {command}");
+                Console.WriteLine($"[알 수 없는 명령] {message.Command}");
             }
         }
 
         //실제 움직임 제어
-        private async Task PlayerMoveAsync()
+        //private async Task PlayerMoveAsync()
+        //{
+        //    while (true)
+        //    {
+        //        foreach (PlayerData player in players.Values)
+        //        {
+        //            if (player.client.Connected == false) continue;
+
+        //            if (player.HasMoved() == false) continue;
+
+        //            await Task.Delay(50); //0.25초 대기(1000 = 1초)
+
+        //            string msg = $"position;{player.id};{player.x};{player.y};{player.z}";
+
+        //            _ = SendAllClientAsync(msg);
+
+        //            player.prevX = player.x;
+        //            player.prevY = player.y;
+        //            player.prevZ = player.z;
+        //        }
+        //    }
+        //}
+
+        #region broadcast (전체, 타겟, 제외)
+        //전체에게 broadcast
+        public async Task SendAllClientAsync(Message msg)
         {
-            while (true)
-            {
-                foreach (PlayerData player in players.Values)
-                {
-                    if (player.client.Connected == false) continue;
-
-                    if (player.HasMoved() == false) continue;
-
-                    await Task.Delay(50); //0.25초 대기(1000 = 1초)
-
-                    string msg = $"position;{player.id};{player.x};{player.y};{player.z}";
-                    
-                    _ = SendAllClientAsync(msg);
-
-                    player.prevX = player.x;
-                    player.prevY = player.y;
-                    player.prevZ = player.z;
-                }
-            }
-        }
-
-        //메시지 보는 부분은 비동기로 처리
-        public async Task SendAllClientAsync(string msg)
-        {
-            if (string.IsNullOrEmpty(msg)) return;
-
-            byte[] body = Encoding.UTF8.GetBytes(msg);
+            string json = JsonSerializer.Serialize(msg);
+            byte[] body = Encoding.UTF8.GetBytes(json);
             byte[] header = BitConverter.GetBytes(body.Length);
             byte[] packet = new byte[header.Length + body.Length];
 
             Buffer.BlockCopy(header, 0, packet, 0, header.Length);
             Buffer.BlockCopy(body, 0, packet, header.Length, body.Length);
 
-            //플레이어가 중간에 없어지는 경우도 있을 수 있어서 보낼때의 List를 파악
             List<PlayerData> snapshot = players.Values.ToList();
-
             List<Task> sendTasks = new List<Task>();
 
             foreach (PlayerData player in snapshot)
@@ -196,12 +222,9 @@ namespace Server
                 try
                 {
                     if (player.client.Connected == false) continue;
-
                     NetworkStream stream = player.client.GetStream();
                     if (!stream.CanWrite) continue;
-
                     sendTasks.Add(stream.WriteAsync(packet, 0, packet.Length));
-                    //Console.WriteLine($"클라이언트에게 보낸 메시지 : {msg}");
                 }
                 catch (Exception e)
                 {
@@ -212,7 +235,55 @@ namespace Server
             await Task.WhenAll(sendTasks);
             Console.WriteLine($"[전송 완료] {msg}");
         }
+
+        //타겟 broadcast
+        public async Task SendMessageAsync(Message msg, TcpClient client)
+        {
+            string json = JsonSerializer.Serialize(msg);
+            byte[] body = Encoding.UTF8.GetBytes(json);
+            byte[] header = BitConverter.GetBytes(body.Length);
+            byte[] packet = new byte[header.Length + body.Length];
+
+            Buffer.BlockCopy(header, 0, packet, 0, header.Length);
+            Buffer.BlockCopy(body, 0, packet, header.Length, body.Length);
+
+            NetworkStream stream = client.GetStream();
+            await stream.WriteAsync(packet, 0, packet.Length);
+        }
+
+        //특정 id 제외한 broadcast
+        public async Task SendAllExceptAsync(Message msg, string exceptId)
+        {
+            string json = JsonSerializer.Serialize(msg);
+            byte[] body = Encoding.UTF8.GetBytes(json);
+            byte[] header = BitConverter.GetBytes(body.Length);
+            byte[] packet = new byte[header.Length + body.Length];
+
+            Buffer.BlockCopy(header, 0, packet, 0, header.Length);
+            Buffer.BlockCopy(body, 0, packet, header.Length, body.Length);
+
+            var snapshot = players.Values.Where(p => p.id != exceptId).ToList();
+            List<Task> sendTasks = new List<Task>();
+
+            foreach (var player in snapshot)
+            {
+                try
+                {
+                    if (player.client.Connected == false) continue;
+                    var stream = player.client.GetStream();
+                    if (!stream.CanWrite) continue;
+                    sendTasks.Add(stream.WriteAsync(packet, 0, packet.Length));
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"[전송오류] {e.Message}");
+                }
+            }
+
+            await Task.WhenAll(sendTasks);
+        }
     }
+    #endregion
 
     class Program
     {

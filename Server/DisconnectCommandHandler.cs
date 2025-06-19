@@ -9,24 +9,25 @@ namespace Server
 {
     internal class DisconnectCommandHandler : ICommandHandler
     {
-        public void Execute(string[] args, TcpClient clinet, AsyncServer server)
+        public void Execute(Message msg, TcpClient client, AsyncServer server)
         {
-            string id = args[1];
+            string id = msg.Id;
 
             if (server.players.TryRemove(id, out var removed))
             {
                 Console.WriteLine($"[정상 종료] {id}");
 
-                string command = $"disconnected;{id};";
-                //_ = server.SendAllClientAsync(command);
-
-                //혹시 stream 제거가 먼저되면 이걸 키면 됨
-                _ = server.SendAllClientAsync(command).ContinueWith(_ =>
+                // disconnected 메시지 생성 (JSON)
+                Message disconnectMsg = new Message
                 {
-                    try 
-                    { 
-                        removed.client.Close(); 
-                    } 
+                    Command = "disconnected",
+                    Id = id
+                };
+
+                // 모든 클라이언트에게 알림 후 소켓 닫기
+                _ = server.SendAllClientAsync(disconnectMsg).ContinueWith(_ =>
+                {
+                    try { removed.client.Close(); }
                     catch { }
                 });
             }

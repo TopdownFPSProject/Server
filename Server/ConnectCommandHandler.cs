@@ -9,23 +9,44 @@ namespace Server
 {
     internal class ConnectCommandHandler : ICommandHandler
     {
-        public void Execute(string[] args, TcpClient client, AsyncServer server)
+        public void Execute(Message msg, TcpClient client, AsyncServer server)
         {
-            string id = args[1];
+            string id = msg.Id;
 
             //연결시 PlayerData객체 생성
             PlayerData data = new PlayerData { id = id, client = client };
             server.players[id] = data;
 
-            StringBuilder sb = new StringBuilder("connected;");
-            List<PlayerData> snapshot = server.players.Values.ToList();
-            
-            foreach (var player in snapshot)
+            //playerList를 먼저 접속한 플레이어에게 넘겨줌
+            Message playerListMsg = new Message
             {
-                sb.Append($"{player.id};");
-            }
+                Command = "playerList",
+                Data = new Dictionary<string, object>
+                {
+                    ["players"] = server.players.Values.Select(p => new Dictionary<string, object>
+                    {
+                        ["id"] = p.id,
+                        ["x"] = 0,
+                        ["y"] = 0,
+                        ["z"] = 0,    
+                    }).ToList()
+                }
+            };
+            server.SendMessageAsync(playerListMsg, client).Wait();
 
-            _ = server.SendAllClientAsync(sb.ToString());
+            // 먼저 접속한 플레이어들에게 새 플레이어 알림
+            Message joinedMsg = new Message
+            {
+                Command = "playerJoined",
+                Id = id,
+                Data = new Dictionary<string, object>
+                {
+                    ["x"] = data.x,
+                    ["y"] = data.y,
+                    ["z"] = data.z
+                }
+            };
+            server.SendAllExceptAsync(joinedMsg, id).Wait();
         }
     }
 }

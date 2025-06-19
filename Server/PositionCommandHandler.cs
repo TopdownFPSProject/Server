@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Server
 {
-    internal class PositionCommandHandler : ICommandHandler
+    internal class PositionCommandHandler //: ICommandHandler
     {
         public void Execute(string[] args, TcpClient clinet, AsyncServer server)
         {
