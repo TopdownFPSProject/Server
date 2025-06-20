@@ -139,6 +139,7 @@ namespace Server
                         if (commandHandlers.TryGetValue(msg.Command, out ICommandHandler handler))
                         {
                             handler.Execute(msg, client, this);
+                            Console.WriteLine($"[넘어온 JSON] : {json}");
                         }
                         else
                         {
