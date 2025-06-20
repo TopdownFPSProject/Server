@@ -238,7 +238,7 @@ namespace Server
         }
 
         //타겟 broadcast
-        public async Task SendMessageAsync(Message msg, TcpClient client)
+        public async Task SendTargetClientAsync(Message msg, TcpClient client)
         {
             string json = JsonSerializer.Serialize(msg);
             byte[] body = Encoding.UTF8.GetBytes(json);
@@ -253,7 +253,7 @@ namespace Server
         }
 
         //특정 id 제외한 broadcast
-        public async Task SendAllExceptAsync(Message msg, string exceptId)
+        public async Task SendExceptTargetAsync(Message msg, string exceptId)
         {
             string json = JsonSerializer.Serialize(msg);
             byte[] body = Encoding.UTF8.GetBytes(json);
