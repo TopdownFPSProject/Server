@@ -28,7 +28,7 @@ namespace Server
                         ["id"] = p.id,
                         ["x"] = p.x,
                         ["y"] = p.y,
-                        ["z"] = p.y,    
+                        ["z"] = p.z,    
                     }).ToList()
                 }
             };
@@ -41,9 +41,9 @@ namespace Server
                 Id = id,
                 Data = new Dictionary<string, object>
                 {
-                    ["x"] = data.x,
-                    ["y"] = data.y,
-                    ["z"] = data.z
+                    ["x"] = 0,
+                    ["y"] = 1,
+                    ["z"] = 0
                 }
             };
             await server.SendExceptTargetAsync(joinedMsg, id);

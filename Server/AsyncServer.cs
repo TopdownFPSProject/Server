@@ -30,15 +30,15 @@ namespace Server
 
         public TcpClient client;
         public float x = 0, y = 0, z = 0;
-        public bool isShot = false;
+        //public bool isShot = false;
 
-        public float prevX = 0, prevY = 0, prevZ = 0;
+        //public float prevX = 0, prevY = 0, prevZ = 0;
 
-        public bool HasMoved()
-        {
-            if (x != prevX || y != prevY || z != prevZ) return true;
-            return false;
-        }
+        //public bool HasMoved()
+        //{
+        //    if (x != prevX || y != prevY || z != prevZ) return true;
+        //    return false;
+        //}
     }
 
     public class BulletData
@@ -72,7 +72,7 @@ namespace Server
             {
                 ["connected"] = new ConnectCommandHandler(),
                 ["disconnected"] = new DisconnectCommandHandler(),
-                //["position"] = new PositionCommandHandler(),
+                ["position"] = new MoveInputCommandHandler(),
                 //["fire"] = new FireCommandHandler(),
             };
 
