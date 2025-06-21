@@ -9,6 +9,6 @@ namespace Server
 {
     internal interface ICommandHandler
     {
-        void Execute(Message message, TcpClient clinet, AsyncServer server);
+        void Execute(string data, TcpClient clinet, AsyncServer server);
     }
 }
