@@ -9,24 +9,20 @@ namespace Server
 {
     internal class DisconnectCommandHandler : ICommandHandler
     {
-        public void Execute(Message msg, TcpClient client, AsyncServer server)
+        public void Execute(string data, TcpClient client, AsyncServer server)
         {
-            string id = msg.Id;
+            string[] parts = data.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            string id = parts[1];
 
-            if (server.players.TryRemove(id, out var removed))
+            if (server.players.TryRemove(id, out PlayerData removed))
             {
                 Console.WriteLine($"[정상 종료] {id}");
 
-                // disconnected 메시지 생성 (JSON)
-                Message disconnectMsg = new Message
-                {
-                    Command = "disconnected",
-                    Id = id
-                };
+                string msg = $"disconnected;{id};";
 
-                // 모든 클라이언트에게 알림 후 소켓 닫기
-                _ = server.SendAllClientAsync(disconnectMsg).ContinueWith(_ =>
+                _ = server.SendExceptTargetAsync(msg, id).ContinueWith(_ =>
                 {
+                    //소켓이 완전히 닫힐때까지 대기
                     try { removed.client.Close(); }
                     catch { }
                 });

@@ -12,24 +12,26 @@ using System.Threading.Tasks;
 
 namespace Server
 {
-    public class Message
-    {
-        [JsonPropertyName("command")]
-        public string Command { get; set; }
-        [JsonPropertyName("id")]
-        public string Id { get; set; }
-        [JsonPropertyName("target")]
-        public string Target { get; set; } = "all";
-        [JsonExtensionData]
-        public Dictionary<string, object> Data { get; set; } = new();
-    }
+    //public class Message
+    //{
+    //    [JsonPropertyName("command")]
+    //    public string Command { get; set; }
+    //    [JsonPropertyName("id")]
+    //    public string Id { get; set; }
+    //    [JsonPropertyName("target")]
+    //    public string Target { get; set; } = "all";
+    //    [JsonExtensionData]
+    //    public Dictionary<string, object> Data { get; set; } = new();
+    //}
 
     public class PlayerData
     {
         public string id;
 
         public TcpClient client;
-        public float x = 0, y = 0, z = 0;
+
+        //기본 스폰 장소
+        public float x = 0, y = 1, z = 0;
         //public bool isShot = false;
 
         //public float prevX = 0, prevY = 0, prevZ = 0;
@@ -88,14 +90,14 @@ namespace Server
 
             while (true)
             {
-                TcpClient client = await listener.AcceptTcpClientAsync();
+                TcpClient client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
                 _ = HandleClientAsync(client);
 
                 Console.WriteLine($"현재 플레이어 수 : {players.Count}");
             }
         }
 
-        //입력 = 헤더 + 본문
+        //클라에서 오는 메시지 받는 곳
         private async Task HandleClientAsync(TcpClient client)
         {
             NetworkStream stream = client.GetStream();
@@ -131,53 +133,53 @@ namespace Server
                         bodyRead += read;
                     }
 
-                    string json = Encoding.UTF8.GetString(body);
-                    Message msg = JsonSerializer.Deserialize<Message>(json);
+                    string msg = Encoding.UTF8.GetString(body);
+                    string[] parts = msg.Split(';');
 
-                    if (msg != null && !string.IsNullOrEmpty(msg.Command))
+                    if (!string.IsNullOrEmpty(msg))
                     {
-                        if (commandHandlers.TryGetValue(msg.Command, out ICommandHandler handler))
+                        if (commandHandlers.TryGetValue(parts[0], out ICommandHandler handler))
                         {
                             handler.Execute(msg, client, this);
-                            Console.WriteLine($"[넘어온 JSON] : {json}");
+                            Console.WriteLine($"[수신] : {msg}");
                         }
                         else
                         {
-                            Console.WriteLine($"[알 수 없는 명령] : {msg.Command}");
+                            Console.WriteLine($"[알 수 없는 명령] : {msg}");
                         }
                     }
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine($"[예외] : {e.Message}");
+                Console.WriteLine($"[비정상적인 접근] : {e.Message}");
             }
         }
 
-        private void HandleClientMessage(string msg, TcpClient client)
-        {
-            Message message;
-            try
-            {
-                message = JsonSerializer.Deserialize<Message>(msg);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"[JSON] 파싱 오류 : {e.Message}");
-                return;
-            }
+        //private void HandleClientMessage(string msg, TcpClient client)
+        //{
+        //    Message message;
+        //    try
+        //    {
+        //        message = JsonSerializer.Deserialize<Message>(msg);
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        Console.WriteLine($"[JSON] 파싱 오류 : {e.Message}");
+        //        return;
+        //    }
 
-            if (message == null || string.IsNullOrEmpty(message.Command)) return;
+        //    if (message == null || string.IsNullOrEmpty(message.Command)) return;
 
-            if (commandHandlers.TryGetValue(message.Command, out ICommandHandler handler))
-            {
-                handler.Execute(message, client, this);
-            }
-            else
-            {
-                Console.WriteLine($"[알 수 없는 명령] {message.Command}");
-            }
-        }
+        //    if (commandHandlers.TryGetValue(message.Command, out ICommandHandler handler))
+        //    {
+        //        handler.Execute(message, client, this);
+        //    }
+        //    else
+        //    {
+        //        Console.WriteLine($"[알 수 없는 명령] {message.Command}");
+        //    }
+        //}
 
         //실제 움직임 제어
         //private async Task PlayerMoveAsync()
@@ -205,7 +207,7 @@ namespace Server
 
         #region broadcast (전체, 타겟, 제외)
         //전체에게 broadcast
-        public async Task SendAllClientAsync(Message msg)
+        public async Task SendAllClientAsync(string msg)
         {
             string json = JsonSerializer.Serialize(msg);
             byte[] body = Encoding.UTF8.GetBytes(json);
@@ -238,10 +240,9 @@ namespace Server
         }
 
         //타겟 broadcast
-        public async Task SendTargetClientAsync(Message msg, TcpClient client)
+        public async Task SendTargetClientAsync(string msg, TcpClient client)
         {
-            string json = JsonSerializer.Serialize(msg);
-            byte[] body = Encoding.UTF8.GetBytes(json);
+            byte[] body = Encoding.UTF8.GetBytes(msg);
             byte[] header = BitConverter.GetBytes(body.Length);
             byte[] packet = new byte[header.Length + body.Length];
 
@@ -253,10 +254,9 @@ namespace Server
         }
 
         //특정 id 제외한 broadcast
-        public async Task SendExceptTargetAsync(Message msg, string exceptId)
+        public async Task SendExceptTargetAsync(string msg, string exceptId)
         {
-            string json = JsonSerializer.Serialize(msg);
-            byte[] body = Encoding.UTF8.GetBytes(json);
+            byte[] body = Encoding.UTF8.GetBytes(msg);
             byte[] header = BitConverter.GetBytes(body.Length);
             byte[] packet = new byte[header.Length + body.Length];
 

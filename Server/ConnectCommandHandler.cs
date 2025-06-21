@@ -9,44 +9,37 @@ namespace Server
 {
     internal class ConnectCommandHandler : ICommandHandler
     {
-        public async void Execute(Message msg, TcpClient client, AsyncServer server)
+        //스폰 포지션
+        private float x, y, z = 0;
+
+        public async void Execute(string data, TcpClient client, AsyncServer server)
         {
-            string id = msg.Id;
+            string[] parts = data.Split(';');
+            string id = parts[1];
 
             //연결시 PlayerData객체 생성
-            PlayerData data = new PlayerData { id = id, client = client };
-            server.players[id] = data;
+            PlayerData playerData = new PlayerData { id = id, client = client };
+            server.players[id] = playerData;
 
-            //새로 들어오면 기존 플레이어 위치 동기화
-            Message playerListMsg = new Message
-            {
-                Command = "playerList",
-                Data = new Dictionary<string, object>
-                {
-                    ["players"] = server.players.Values.Select(p => new Dictionary<string, object>
-                    {
-                        ["id"] = p.id,
-                        ["x"] = p.x,
-                        ["y"] = p.y,
-                        ["z"] = p.z,    
-                    }).ToList()
-                }
-            };
-            await server.SendTargetClientAsync(playerListMsg, client);
+            StringBuilder sb = new StringBuilder();
+            sb.Append("playerList;");
 
-            // 먼저 접속한 플레이어들에게 새 플레이어 알림
-            Message joinedMsg = new Message
+            foreach (PlayerData p in server.players.Values)
             {
-                Command = "playerJoined",
-                Id = id,
-                Data = new Dictionary<string, object>
-                {
-                    ["x"] = 0,
-                    ["y"] = 1,
-                    ["z"] = 0
-                }
-            };
-            await server.SendExceptTargetAsync(joinedMsg, id);
+                sb.Append($"{p.id},{p.x},{p.y},{p.z}|");
+            }
+
+            string msg = sb.ToString();
+
+            await server.SendTargetClientAsync(msg, client);
+
+            StringBuilder sb2 = new StringBuilder();
+            sb.Append($"playerJoined;{id},{playerData.x},{playerData.y},{playerData.z}");
+
+            string msg2 = sb.ToString();
+
+            await server.SendExceptTargetAsync(msg, id);
+
         }
     }
 }
