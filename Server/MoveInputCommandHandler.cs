@@ -11,36 +11,28 @@ namespace Server
     {
         public async void Execute(string data, TcpClient clinet, AsyncServer server)
         {
-            //if (!server.players.TryGetValue(msg.Id, out var player)) return;
+            string body = data.Substring("moveInput;".Length);
+            string[] posData = body.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            string id = posData[0];
 
-            //float dirX = Convert.ToSingle(msg.Data["dirX"]);
-            //float dirY = Convert.ToSingle(msg.Data["dirY"]);
-            //float dirZ = Convert.ToSingle(msg.Data["dirZ"]);
-            //bool isMoving = Convert.ToBoolean(msg.Data["isMoving"]);
+            if (!server.players.TryGetValue(id, out var player)) return;
 
-            //float speed = 5f; //초당 이동 속도
-            //float deltaTime = 0.05f; //50ms마다 처리
+            float dirX = Convert.ToSingle(posData[1]);
+            float dirZ = Convert.ToSingle(posData[2]);
+            bool isMoving = Convert.ToBoolean(posData[3]);
 
-            //if (isMoving)
-            //{
-            //    player.x += dirX * speed * deltaTime;
-            //    player.y += dirY * speed * deltaTime;
-            //    player.z += dirZ * speed * deltaTime;
-            //}
+            float speed = 5f; //초당 이동 속도
+            float deltaTime = 0.05f; //50ms마다 처리
 
-            //var syncMsg = new Message
-            //{
-            //    Command = "syncPosition",
-            //    Id = player.id,
-            //    Data = new Dictionary<string, object>
-            //    {
-            //        { "x", player.x },
-            //        { "y", player.y },
-            //        { "z", player.z }
-            //    }
-            //};
+            if (isMoving)
+            {
+                player.x += dirX * speed * deltaTime;
+                player.z += dirZ * speed * deltaTime;
+            }
 
-            //await server.SendAllClientAsync(syncMsg);
+            string syncMsg = $"syncPosition;{id},{player.x},{player.z}";
+            
+            await server.SendAllClientAsync(syncMsg);
         }
     }
 }

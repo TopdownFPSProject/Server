@@ -74,7 +74,7 @@ namespace Server
             {
                 ["connected"] = new ConnectCommandHandler(),
                 ["disconnected"] = new DisconnectCommandHandler(),
-                ["position"] = new MoveInputCommandHandler(),
+                ["moveInput"] = new MoveInputCommandHandler(),
                 //["fire"] = new FireCommandHandler(),
             };
 
@@ -209,8 +209,7 @@ namespace Server
         //전체에게 broadcast
         public async Task SendAllClientAsync(string msg)
         {
-            string json = JsonSerializer.Serialize(msg);
-            byte[] body = Encoding.UTF8.GetBytes(json);
+            byte[] body = Encoding.UTF8.GetBytes(msg);
             byte[] header = BitConverter.GetBytes(body.Length);
             byte[] packet = new byte[header.Length + body.Length];
 
