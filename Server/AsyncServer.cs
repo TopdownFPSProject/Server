@@ -74,7 +74,7 @@ namespace Server
             {
                 ["connected"] = new ConnectCommandHandler(),
                 ["disconnected"] = new DisconnectCommandHandler(),
-                ["position"] = new MoveInputCommandHandler(),
+                ["input"] = new MoveInputCommandHandler(),
                 ["fire"] = new FireCommandHandler(),
             };
 
@@ -188,21 +188,30 @@ namespace Server
             {
                 foreach (PlayerData player in players.Values)
                 {
-                    if (player.client.Connected == false) continue;
-
-                    if (player.HasMoved() == false) continue;
+                    if (!player.client.Connected) continue;
 
                     string msg = $"position;{player.id};{player.x};{player.y};{player.z}";
-
-                    _ = SendAllClientAsync(msg);
-
-                    //이동이 완료된 후에는 이전 위치를 변경
-                    player.prevX = player.x;
-                    player.prevY = player.y;
-                    player.prevZ = player.z;
-
-                    await Task.Delay(250); //0.25초 대기(1000 = 1초) -> 클라이언트랑 싱크를 맞춰야하나?
+                    await SendAllClientAsync(msg); // 본인 제외 broadcast
                 }
+
+                await Task.Delay(250); // 30fps 기준 = 약 33ms
+                //foreach (PlayerData player in players.Values)
+                //{
+                //    if (player.client.Connected == false) continue;
+
+                //    if (player.HasMoved() == false) continue;
+
+                //    string msg = $"position;{player.id};{player.x};{player.y};{player.z}";
+
+                //    _ = SendAllClientAsync(msg);
+
+                //    //이동이 완료된 후에는 이전 위치를 변경
+                //    player.prevX = player.x;
+                //    player.prevY = player.y;
+                //    player.prevZ = player.z;
+
+                //    await Task.Delay(250); //0.25초 대기(1000 = 1초) -> 클라이언트랑 싱크를 맞춰야하나?
+                //}
             }
         }
 
