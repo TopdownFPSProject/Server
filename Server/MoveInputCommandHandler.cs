@@ -11,28 +11,24 @@ namespace Server
     {
         public async void Execute(string data, TcpClient clinet, AsyncServer server)
         {
-            string body = data.Substring("moveInput;".Length);
-            string[] posData = body.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            string id = posData[0];
+            string[] posData = data.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            string id = posData[1];
 
-            if (!server.players.TryGetValue(id, out var player)) return;
+            float x = Convert.ToSingle(posData[2]);
+            float y = Convert.ToSingle(posData[3]);
+            float z = Convert.ToSingle(posData[4]);
 
-            float dirX = Convert.ToSingle(posData[1]);
-            float dirZ = Convert.ToSingle(posData[2]);
-            bool isMoving = Convert.ToBoolean(posData[3]);
-
-            float speed = 5f; //초당 이동 속도
-            float deltaTime = 0.05f; //50ms마다 처리
-
-            if (isMoving)
+            // 서버 플레이어 위치 갱신(옵션)
+            if (server.players.TryGetValue(id, out var player))
             {
-                player.x += dirX * speed * deltaTime;
-                player.z += dirZ * speed * deltaTime;
+                player.x = x;
+                player.y = y;
+                player.z = z;
             }
+            //await server.PlayerMoveAsync();
 
-            string syncMsg = $"syncPosition;{id},{player.x},{player.z}";
-            
-            await server.SendAllClientAsync(syncMsg);
+            //string syncMsg = $"syncPosition;{id},{x},{y},{z}";
+            //await server.SendExceptTargetAsync(syncMsg, id);
         }
     }
 }

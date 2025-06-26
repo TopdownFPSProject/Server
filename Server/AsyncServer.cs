@@ -30,17 +30,17 @@ namespace Server
 
         public TcpClient client;
 
-        //기본 스폰 장소
+        //기본 스폰 위치
         public float x = 0, y = 1, z = 0;
-        //public bool isShot = false;
 
-        //public float prevX = 0, prevY = 0, prevZ = 0;
+        //이전 프레임에서의 위치
+        public float prevX = 0, prevY = 0, prevZ = 0;
 
-        //public bool HasMoved()
-        //{
-        //    if (x != prevX || y != prevY || z != prevZ) return true;
-        //    return false;
-        //}
+        public bool HasMoved()
+        {
+            if (x != prevX || y != prevY || z != prevZ) return true;
+            return false;
+        }
     }
 
     public class BulletData
@@ -74,12 +74,12 @@ namespace Server
             {
                 ["connected"] = new ConnectCommandHandler(),
                 ["disconnected"] = new DisconnectCommandHandler(),
-                ["moveInput"] = new MoveInputCommandHandler(),
-                //["fire"] = new FireCommandHandler(),
+                ["position"] = new MoveInputCommandHandler(),
+                ["fire"] = new FireCommandHandler(),
             };
 
-            //게임 별도 쓰레드 -> 임시로 주석
-            //_ = Task.Run(PlayerMoveAsync);
+            //게임 별도 쓰레드
+            _ = Task.Run(PlayerMoveAsync);
         }
 
         public async Task StartAsync(int port)
@@ -140,8 +140,8 @@ namespace Server
                     {
                         if (commandHandlers.TryGetValue(parts[0], out ICommandHandler handler))
                         {
-                            handler.Execute(msg, client, this);
                             Console.WriteLine($"[수신] : {msg}");
+                            handler.Execute(msg, client, this);
                         }
                         else
                         {
@@ -182,28 +182,29 @@ namespace Server
         //}
 
         //실제 움직임 제어
-        //private async Task PlayerMoveAsync()
-        //{
-        //    while (true)
-        //    {
-        //        foreach (PlayerData player in players.Values)
-        //        {
-        //            if (player.client.Connected == false) continue;
+        public async Task PlayerMoveAsync()
+        {
+            while (true)
+            {
+                foreach (PlayerData player in players.Values)
+                {
+                    if (player.client.Connected == false) continue;
 
-        //            if (player.HasMoved() == false) continue;
+                    if (player.HasMoved() == false) continue;
 
-        //            await Task.Delay(50); //0.25초 대기(1000 = 1초)
+                    string msg = $"position;{player.id};{player.x};{player.y};{player.z}";
 
-        //            string msg = $"position;{player.id};{player.x};{player.y};{player.z}";
+                    _ = SendAllClientAsync(msg);
 
-        //            _ = SendAllClientAsync(msg);
+                    //이동이 완료된 후에는 이전 위치를 변경
+                    player.prevX = player.x;
+                    player.prevY = player.y;
+                    player.prevZ = player.z;
 
-        //            player.prevX = player.x;
-        //            player.prevY = player.y;
-        //            player.prevZ = player.z;
-        //        }
-        //    }
-        //}
+                    await Task.Delay(250); //0.25초 대기(1000 = 1초) -> 클라이언트랑 싱크를 맞춰야하나?
+                }
+            }
+        }
 
         #region broadcast (전체, 타겟, 제외)
         //전체에게 broadcast

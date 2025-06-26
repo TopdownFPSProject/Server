@@ -7,26 +7,24 @@ using System.Threading.Tasks;
 
 namespace Server
 {
-    internal class FireCommandHandler //: ICommandHandler
+    internal class FireCommandHandler : ICommandHandler
     {
-        public void Execute(string[] args, TcpClient clinet, AsyncServer server)
+        public void Execute(string data, TcpClient clinet, AsyncServer server)
         {
-            string id = args[1];
-            //위치
-            string x = args[2];
-            string y = args[3];
-            string z = args[4];
-            //바라보는 방향
-            string dirX = args[5];
-            string dirY = args[6];
-            string dirZ = args[7];
-            //보낸 시간
-            string time = args[8];
+            string[] parts = data.Split(';', StringSplitOptions.RemoveEmptyEntries);
 
-            //쏘는 방향은 다르게 해야하긴 함(ex 플레이어가 보는 방향)
-            //일단 쏜 시간을 기준으로 총알 오브젝트 만들고 더 최적화 하는 방법을 생각해보자
-            string command = $"fire;{id};{x};{y};{z};{dirX};{dirY};{dirZ};{time};";
-            //_ = server.SendAllClientAsync(command);
+            string id = parts[1];
+            string x = parts[2];
+            string y = parts[3];
+            string z = parts[4];
+            string dirX = parts[5];
+            string dirY = parts[6];
+            string dirZ = parts[7];
+            string time = parts[8];
+
+            string command = $"fire;{id};{x};{y};{z};{dirX};{dirY};{dirZ};{time}";
+            //Console.WriteLine(command);
+            _ = server.SendAllClientAsync(command);
         }
     }
 }
