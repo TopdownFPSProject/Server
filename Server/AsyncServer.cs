@@ -190,11 +190,17 @@ namespace Server
                 {
                     if (!player.client.Connected) continue;
 
-                    string msg = $"position;{player.id};{player.x};{player.y};{player.z}";
-                    await SendAllClientAsync(msg); // 본인 제외 broadcast
+                    if (player.HasMoved())
+                    {
+                        string msg = $"position;{player.id};{player.x};{player.y};{player.z}";
+                        player.prevX = player.x;
+                        player.prevY = player.y;
+                        player.prevZ = player.z;
+                        await SendAllClientAsync(msg); // 본인 제외 broadcast
+                    }
                 }
 
-                await Task.Delay(250); // 30fps 기준 = 약 33ms
+                await Task.Delay(33); // 30fps 기준 = 약 33ms
                 //foreach (PlayerData player in players.Values)
                 //{
                 //    if (player.client.Connected == false) continue;
