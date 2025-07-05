@@ -7,8 +7,8 @@ using System.Net.Sockets;
 
 namespace Server
 {
-    internal interface ICommandHandler
+    public interface ICommandHandler<T> where T : MessagePackBase
     {
-        void Execute(string data, TcpClient clinet, AsyncServer server);
+        void Execute(T packet, TcpClient client, AsyncServer server);
     }
 }

@@ -4,42 +4,77 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using MessagePack;
 
 namespace Server
 {
-    internal class ConnectCommandHandler : ICommandHandler
+    internal class ConnectCommandHandler : ICommandHandler<ConnectPacket>
     {
+        [MessagePackObject]
+        [Command("playerList")]
+        public class PlayerListPacket : MessagePackBase
+        {
+            [Key(1)]
+            public List<PlayerInfo> Players { get; set; }
+        }
+
+        [MessagePackObject]
+        [Command("playerList")]
+        public class PlayerInfo
+        {
+            [Key(0)] 
+            public string Id { get; set; }
+            [Key(1)] 
+            public float X { get; set; }
+            [Key(2)] 
+            public float Y { get; set; }
+            [Key(3)] 
+            public float Z { get; set; }
+        }
+
+        [MessagePackObject]
+        [Command("playerJoined")]
+        public class PlayerJoinedPacket : MessagePackBase
+        {
+            [Key(1)] public string Id { get; set; }
+            [Key(2)] public float X { get; set; }
+            [Key(3)] public float Y { get; set; }
+            [Key(4)] public float Z { get; set; }
+        }
+
         //스폰 포지션
         private float x, y, z = 0;
 
-        public async void Execute(string data, TcpClient client, AsyncServer server)
+        public async void Execute(ConnectPacket packet, TcpClient client, AsyncServer server)
         {
-            string[] parts = data.Split(';');
-            string id = parts[1];
+            string id = packet.Id;
 
             //연결시 PlayerData객체 생성
             PlayerData playerData = new PlayerData { id = id, client = client };
             server.players[id] = playerData;
 
-            StringBuilder sb = new StringBuilder();
-            sb.Append("playerList;");
+            // 1. playerList 패킷 생성 및 전송
+            List<PlayerInfo> playerList = server.players.Values
+                .Select(p => new PlayerInfo { Id = p.id, X = p.x, Y = p.y, Z = p.z })
+                .ToList();
 
-            foreach (PlayerData p in server.players.Values)
+            PlayerListPacket listPacket = new PlayerListPacket
             {
-                sb.Append($"{p.id},{p.x},{p.y},{p.z}|");
-            }
+                Command = "playerList",
+                Players = playerList
+            };
+            await server.SendTargetClientAsync(listPacket, client);
 
-            string msg = sb.ToString();
-
-            await server.SendTargetClientAsync(msg, client);
-
-            StringBuilder sb2 = new StringBuilder();
-            sb.Append($"playerJoined;{id},{playerData.x},{playerData.y},{playerData.z}");
-
-            string msg2 = sb.ToString();
-
-            await server.SendExceptTargetAsync(msg, id);
-
+            // 2. playerJoined 패킷 생성 및 전송
+            PlayerJoinedPacket joinedPacket = new PlayerJoinedPacket
+            {
+                Command = "playerJoined",
+                Id = id,
+                X = playerData.x,
+                Y = playerData.y,
+                Z = playerData.z
+            };
+            await server.SendExceptTargetAsync(joinedPacket, id);
         }
     }
 }

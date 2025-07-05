@@ -4,11 +4,13 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Numerics;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using MessagePack;
 
 namespace Server
 {
@@ -50,6 +52,19 @@ namespace Server
         public float dirX, dirY, dirZ;
     }
 
+    [AttributeUsage(AttributeTargets.Class)]
+    public class CommandAttribute : Attribute
+    {
+        public string Command { get; }
+        public CommandAttribute(string command) => Command = command;
+    }
+
+    public class HandlerInfo
+    {
+        public Type PacketType { get; set; }
+        public object HandlerInstance { get; set; }
+    }
+
     public class AsyncServer
     {
         public static int index = 0;
@@ -61,7 +76,7 @@ namespace Server
         private readonly ConcurrentQueue<(string id, string input)> inputQueue = new();
         private readonly ConcurrentBag<BulletData> bullets = new();
 
-        private readonly Dictionary<string, ICommandHandler> commandHandlers = new();
+        private readonly Dictionary<string, HandlerInfo> commandHandlers = new();
 
         private readonly object bulletLock = new();
 
@@ -70,14 +85,14 @@ namespace Server
 
         public AsyncServer()
         {
-            commandHandlers = new()
-            {
-                ["connected"] = new ConnectCommandHandler(),
-                ["disconnected"] = new DisconnectCommandHandler(),
-                ["input"] = new MoveInputCommandHandler(),
-                ["fire"] = new FireCommandHandler(),
-            };
-
+            //commandHandlers = new()
+            //{
+            //    ["connected"] = new HandlerInfo { PacketType = typeof(ConnectPacket), HandlerInstance = new ConnectCommandHandler() },
+            //    ["disconnected"] = new HandlerInfo { PacketType = typeof(DisConnectPacket), HandlerInstance = new DisconnectCommandHandler() },
+            //    ["input"] = new HandlerInfo { PacketType = typeof(PositionPacket), HandlerInstance = new MoveInputCommandHandler() },
+            //    ["fire"] = new HandlerInfo { PacketType = typeof(FirePacket), HandlerInstance = new FireCommandHandler() },
+            //};
+            RegisterHandlers();
             //게임 별도 쓰레드
             _ = Task.Run(PlayerMoveAsync);
         }
@@ -94,6 +109,32 @@ namespace Server
                 _ = HandleClientAsync(client);
 
                 Console.WriteLine($"현재 플레이어 수 : {players.Count}");
+            }
+        }
+
+        //핸들러 자동등록
+        private void RegisterHandlers()
+        {
+            Type[] allTypes = Assembly.GetExecutingAssembly().GetTypes();
+            foreach (Type handlerType in allTypes)
+            {
+                Type[] interfaces = handlerType.GetInterfaces();
+                foreach (Type iface in interfaces)
+                {
+                    if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(ICommandHandler<>))
+                    {
+                        Type packetType = iface.GetGenericArguments()[0];
+                        CommandAttribute ca = (CommandAttribute)Attribute.GetCustomAttribute(packetType, typeof(CommandAttribute));
+                        if (ca == null) continue;
+
+                        object handlerInstance = Activator.CreateInstance(handlerType);
+                        commandHandlers[ca.Command] = new HandlerInfo
+                        {
+                            PacketType = packetType,
+                            HandlerInstance = handlerInstance
+                        };
+                    }
+                }
             }
         }
 
@@ -133,19 +174,25 @@ namespace Server
                         bodyRead += read;
                     }
 
-                    string msg = Encoding.UTF8.GetString(body);
-                    string[] parts = msg.Split(';');
+                    //string msg = Encoding.UTF8.GetString(body);
+                    //string[] parts = msg.Split(';');
 
-                    if (!string.IsNullOrEmpty(msg))
+                    MessagePackBase basePacket = MessagePackSerializer.Deserialize<MessagePackBase>(body);
+                    string command = basePacket.Command;
+
+                    if (!string.IsNullOrEmpty(command))
                     {
-                        if (commandHandlers.TryGetValue(parts[0], out ICommandHandler handler))
+                        if (commandHandlers.TryGetValue(command, out var handlerInfo))
                         {
-                            Console.WriteLine($"[수신] : {msg}");
-                            handler.Execute(msg, client, this);
+                            object packet = MessagePackSerializer.Deserialize(handlerInfo.PacketType, body);
+
+                            // Execute 메서드 호출 (리플렉션)
+                            MethodInfo method = handlerInfo.HandlerInstance.GetType().GetMethod("Execute");
+                            method.Invoke(handlerInfo.HandlerInstance, new object[] { packet, client, this });
                         }
                         else
                         {
-                            Console.WriteLine($"[알 수 없는 명령] : {msg}");
+                            Console.WriteLine($"[알 수 없는 명령]");
                         }
                     }
                 }
@@ -192,11 +239,20 @@ namespace Server
 
                     if (player.HasMoved())
                     {
-                        string msg = $"position;{player.id};{player.x};{player.y};{player.z}";
+                        PositionPacket packet = new PositionPacket
+                        {
+                            Command = "position",
+                            Id = player.id,
+                            X = player.x,
+                            Y = player.y,
+                            Z = player.z,
+                        };
+
+                        await SendAllClientAsync(packet);
+
                         player.prevX = player.x;
                         player.prevY = player.y;
                         player.prevZ = player.z;
-                        await SendAllClientAsync(msg); // 본인 제외 broadcast
                     }
                 }
 
@@ -219,6 +275,36 @@ namespace Server
                 //    await Task.Delay(250); //0.25초 대기(1000 = 1초) -> 클라이언트랑 싱크를 맞춰야하나?
                 //}
             }
+        }
+
+        public async Task SendAllClientAsync<T>(T packet)
+        {
+            byte[] body = MessagePackSerializer.Serialize(packet);
+            byte[] header = BitConverter.GetBytes(body.Length);
+            byte[] sendPacket = new byte[header.Length + body.Length];
+            Buffer.BlockCopy(header, 0, sendPacket, 0, header.Length);
+            Buffer.BlockCopy(body, 0, sendPacket, header.Length, body.Length);
+
+            List<PlayerData> snapshot = players.Values.ToList();
+            List<Task> sendTasks = new List<Task>();
+
+            foreach (PlayerData player in snapshot)
+            {
+                try
+                {
+                    if (player.client.Connected == false) continue;
+                    NetworkStream stream = player.client.GetStream();
+                    if (!stream.CanWrite) continue;
+                    sendTasks.Add(stream.WriteAsync(sendPacket, 0, sendPacket.Length));
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"[전송오류] {e.Message}");
+                }
+            }
+
+            await Task.WhenAll(sendTasks);
+            Console.WriteLine($"[전송 완료]");
         }
 
         #region broadcast (전체, 타겟, 제외)
@@ -255,28 +341,26 @@ namespace Server
         }
 
         //타겟 broadcast
-        public async Task SendTargetClientAsync(string msg, TcpClient client)
+        public async Task SendTargetClientAsync<T>(T packet, TcpClient client)
         {
-            byte[] body = Encoding.UTF8.GetBytes(msg);
+            byte[] body = MessagePackSerializer.Serialize(packet);
             byte[] header = BitConverter.GetBytes(body.Length);
-            byte[] packet = new byte[header.Length + body.Length];
-
-            Buffer.BlockCopy(header, 0, packet, 0, header.Length);
-            Buffer.BlockCopy(body, 0, packet, header.Length, body.Length);
+            byte[] sendPacket = new byte[header.Length + body.Length];
+            Buffer.BlockCopy(header, 0, sendPacket, 0, header.Length);
+            Buffer.BlockCopy(body, 0, sendPacket, header.Length, body.Length);
 
             NetworkStream stream = client.GetStream();
-            await stream.WriteAsync(packet, 0, packet.Length);
+            await stream.WriteAsync(sendPacket, 0, sendPacket.Length);
         }
 
         //특정 id 제외한 broadcast
-        public async Task SendExceptTargetAsync(string msg, string exceptId)
+        public async Task SendExceptTargetAsync<T>(T packet, string exceptId)
         {
-            byte[] body = Encoding.UTF8.GetBytes(msg);
+            byte[] body = MessagePackSerializer.Serialize(packet);
             byte[] header = BitConverter.GetBytes(body.Length);
-            byte[] packet = new byte[header.Length + body.Length];
-
-            Buffer.BlockCopy(header, 0, packet, 0, header.Length);
-            Buffer.BlockCopy(body, 0, packet, header.Length, body.Length);
+            byte[] sendPacket = new byte[header.Length + body.Length];
+            Buffer.BlockCopy(header, 0, sendPacket, 0, header.Length);
+            Buffer.BlockCopy(body, 0, sendPacket, header.Length, body.Length);
 
             var snapshot = players.Values.Where(p => p.id != exceptId).ToList();
             List<Task> sendTasks = new List<Task>();
@@ -288,7 +372,7 @@ namespace Server
                     if (player.client.Connected == false) continue;
                     var stream = player.client.GetStream();
                     if (!stream.CanWrite) continue;
-                    sendTasks.Add(stream.WriteAsync(packet, 0, packet.Length));
+                    sendTasks.Add(stream.WriteAsync(sendPacket, 0, sendPacket.Length));
                 }
                 catch (Exception e)
                 {

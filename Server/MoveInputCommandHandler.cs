@@ -8,21 +8,16 @@ using System.Threading.Tasks;
 
 namespace Server
 {
-    internal class MoveInputCommandHandler : ICommandHandler
+    internal class MoveInputCommandHandler : ICommandHandler<PositionPacket>
     {
         private const float moveSpeed = 5f;
-        public void Execute(string data, TcpClient clinet, AsyncServer server)
+        public void Execute(PositionPacket packet, TcpClient clinet, AsyncServer server)
         {
-            string[] parts = data.Split(';', StringSplitOptions.RemoveEmptyEntries);
-            string id = parts[1];
+            string id = packet.Id;
 
             if (!server.players.TryGetValue(id, out PlayerData player)) return;
 
-            float dirX = float.Parse(parts[2]);
-            float dirY = float.Parse(parts[3]); 
-            float dirZ = float.Parse(parts[4]);
-
-            Vector3 direction = new Vector3(dirX, dirY, dirZ);
+            Vector3 direction = new Vector3(packet.X, packet.Y, packet.X);
 
             float deltaTime = 1f / 30;
             player.x += direction.X * moveSpeed * deltaTime;
