@@ -1,46 +1,41 @@
-﻿using System;
+﻿using SharedPacketLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Server
 {
-    internal class MoveInputCommandHandler : ICommandHandler
+    internal class MoveInputCommandHandler : ICommandHandler<C_InputPacket>
     {
-        public async void Execute(string data, TcpClient clinet, AsyncServer server)
+        private const float moveSpeed = 5f;
+        public void Execute(C_InputPacket packet, TcpClient clinet, AsyncServer server)
         {
-            //if (!server.players.TryGetValue(msg.Id, out var player)) return;
+            string id = packet.Id;
 
-            //float dirX = Convert.ToSingle(msg.Data["dirX"]);
-            //float dirY = Convert.ToSingle(msg.Data["dirY"]);
-            //float dirZ = Convert.ToSingle(msg.Data["dirZ"]);
-            //bool isMoving = Convert.ToBoolean(msg.Data["isMoving"]);
+            if (!server.players.TryGetValue(id, out PlayerData player)) return;
 
-            //float speed = 5f; //초당 이동 속도
-            //float deltaTime = 0.05f; //50ms마다 처리
+            Vector3 direction = new Vector3(packet.X, packet.Y, packet.Z);
 
-            //if (isMoving)
+            float deltaTime = 1f / 30;
+            player.x += direction.X * moveSpeed * deltaTime;
+            player.y += direction.Y * moveSpeed * deltaTime;
+            player.z += direction.Z * moveSpeed * deltaTime;
+
+            // 서버 플레이어 위치 갱신(옵션)
+            //if (server.players.TryGetValue(id, out var player))
             //{
-            //    player.x += dirX * speed * deltaTime;
-            //    player.y += dirY * speed * deltaTime;
-            //    player.z += dirZ * speed * deltaTime;
+            //    player.x = x;
+            //    player.y = y;
+            //    player.z = z;
             //}
+            //await server.PlayerMoveAsync();
 
-            //var syncMsg = new Message
-            //{
-            //    Command = "syncPosition",
-            //    Id = player.id,
-            //    Data = new Dictionary<string, object>
-            //    {
-            //        { "x", player.x },
-            //        { "y", player.y },
-            //        { "z", player.z }
-            //    }
-            //};
-
-            //await server.SendAllClientAsync(syncMsg);
+            //string syncMsg = $"syncPosition;{id},{x},{y},{z}";
+            //await server.SendExceptTargetAsync(syncMsg, id);
         }
     }
 }

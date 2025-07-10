@@ -4,15 +4,16 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using SharedPacketLib;
 
 namespace Server
 {
-    internal class DisconnectCommandHandler : ICommandHandler
+    internal class DisconnectCommandHandler : ICommandHandler<C_DisconnectPacket>
     {
-        public void Execute(string data, TcpClient client, AsyncServer server)
+        public void Execute(C_DisconnectPacket packet, TcpClient client, AsyncServer server)
         {
-            string[] parts = data.Split(';', StringSplitOptions.RemoveEmptyEntries);
-            string id = parts[1];
+            string id = packet.Id;
 
             if (server.players.TryRemove(id, out PlayerData removed))
             {
@@ -20,12 +21,12 @@ namespace Server
 
                 string msg = $"disconnected;{id};";
 
-                _ = server.SendExceptTargetAsync(msg, id).ContinueWith(_ =>
-                {
-                    //소켓이 완전히 닫힐때까지 대기
-                    try { removed.client.Close(); }
-                    catch { }
-                });
+                //_ = server.SendExceptTargetAsync(msg, id).ContinueWith(_ =>
+                //{
+                //    //소켓이 완전히 닫힐때까지 대기
+                //    try { removed.client.Close(); }
+                //    catch { }
+                //});
             }
         }
     }

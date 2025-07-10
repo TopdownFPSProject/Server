@@ -4,11 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Net.Sockets;
+using SharedPacketLib;
 
 namespace Server
 {
-    internal interface ICommandHandler
+    public interface ICommandHandler<T> where T : PacketBase
     {
-        void Execute(string data, TcpClient clinet, AsyncServer server);
+        void Execute(T packet, TcpClient client, AsyncServer server);
     }
 }
