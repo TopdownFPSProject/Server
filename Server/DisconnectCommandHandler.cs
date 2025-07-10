@@ -9,9 +9,9 @@ using SharedPacketLib;
 
 namespace Server
 {
-    internal class DisconnectCommandHandler : ICommandHandler<DisConnectPacket>
+    internal class DisconnectCommandHandler : ICommandHandler<C_DisconnectPacket>
     {
-        public void Execute(DisConnectPacket packet, TcpClient client, AsyncServer server)
+        public void Execute(C_DisconnectPacket packet, TcpClient client, AsyncServer server)
         {
             string id = packet.Id;
 
@@ -21,12 +21,12 @@ namespace Server
 
                 string msg = $"disconnected;{id};";
 
-                _ = server.SendExceptTargetAsync(msg, id).ContinueWith(_ =>
-                {
-                    //소켓이 완전히 닫힐때까지 대기
-                    try { removed.client.Close(); }
-                    catch { }
-                });
+                //_ = server.SendExceptTargetAsync(msg, id).ContinueWith(_ =>
+                //{
+                //    //소켓이 완전히 닫힐때까지 대기
+                //    try { removed.client.Close(); }
+                //    catch { }
+                //});
             }
         }
     }

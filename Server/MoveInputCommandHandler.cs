@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SharedPacketLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
@@ -8,16 +9,16 @@ using System.Threading.Tasks;
 
 namespace Server
 {
-    internal class MoveInputCommandHandler : ICommandHandler<PositionPacket>
+    internal class MoveInputCommandHandler : ICommandHandler<C_InputPacket>
     {
         private const float moveSpeed = 5f;
-        public void Execute(PositionPacket packet, TcpClient clinet, AsyncServer server)
+        public void Execute(C_InputPacket packet, TcpClient clinet, AsyncServer server)
         {
             string id = packet.Id;
 
             if (!server.players.TryGetValue(id, out PlayerData player)) return;
 
-            Vector3 direction = new Vector3(packet.X, packet.Y, packet.X);
+            Vector3 direction = new Vector3(packet.X, packet.Y, packet.Z);
 
             float deltaTime = 1f / 30;
             player.x += direction.X * moveSpeed * deltaTime;

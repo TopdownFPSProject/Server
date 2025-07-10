@@ -37,17 +37,17 @@ namespace Server
 
     }
 
-    [MessagePackObject]
-    [Command("moveinput")]
-    public class PositionPacket : MessagePackBase
-    {
-        [Key(1)]
-        public string Id { get; set; }
-        [Key(2)]
-        public float X { get; set; }
-        [Key(3)]
-        public float Y { get; set; }
-        [Key(4)]
-        public float Z { get; set; }
-    }
+    //[MessagePackObject]
+    //[Command("moveinput")]
+    //public class PositionPacket : MessagePackBase
+    //{
+    //    [Key(1)]
+    //    public string Id { get; set; }
+    //    [Key(2)]
+    //    public float X { get; set; }
+    //    [Key(3)]
+    //    public float Y { get; set; }
+    //    [Key(4)]
+    //    public float Z { get; set; }
+    //}
 }
