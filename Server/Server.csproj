@@ -12,8 +12,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="SharedPacketLib">
-      <HintPath>..\..\SharedPacketLib\SharedPacketLib\SharedPacketLib\obj\Debug\netstandard2.0\SharedPacketLib.dll</HintPath>
+    <Reference Include="SharedPacket">
+      <HintPath>..\..\SharedPacket\obj\Debug\netstandard2.0\SharedPacket.dll</HintPath>
     </Reference>
   </ItemGroup>
 
