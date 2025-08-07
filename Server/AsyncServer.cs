@@ -11,7 +11,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using MessagePack;
-using SharedPacketLib;
+using SharedPacket;
 
 namespace Server
 {
@@ -34,14 +34,14 @@ namespace Server
         public TcpClient client;
 
         //기본 스폰 위치
-        public float x = 0, y = 1, z = 0;
+        public float x = 0, y = 1, z = 0, angle = 0;
 
         //이전 프레임에서의 위치
-        public float prevX = 0, prevY = 0, prevZ = 0;
+        public float prevX = 0, prevY = 0, prevZ = 0, preAngle = 0f;
 
         public bool HasMoved()
         {
-            if (x != prevX || y != prevY || z != prevZ) return true;
+            if (x != prevX || y != prevY || z != prevZ || angle != preAngle) return true;
             return false;
         }
     }
@@ -49,8 +49,9 @@ namespace Server
     public class BulletData
     {
         public string ownerId;
-        public float x, y, z;
-        public float dirX, dirY, dirZ;
+        public Vector3 spawnPos;
+        public float angle;
+        public long spawnTime;
     }
 
     [AttributeUsage(AttributeTargets.Class)]
@@ -78,7 +79,7 @@ namespace Server
         public readonly ConcurrentDictionary<string, PlayerData> players = new();
 
         private readonly ConcurrentQueue<(string id, string input)> inputQueue = new();
-        private readonly ConcurrentBag<BulletData> bullets = new();
+        public List<BulletData> bullets = new();
 
         private readonly Dictionary<string, HandlerInfo> commandHandlers = new();
 
@@ -154,6 +155,16 @@ namespace Server
             {
                 HandlerInstance = new MoveInputCommandHandler(),
                 PacketType = typeof(C_InputPacket)
+            });
+            commandHandlers.Add("fire", new HandlerInfo
+            {
+                HandlerInstance = new FireCommandHandler(),
+                PacketType = typeof(C_FirePacket)
+            });
+            commandHandlers.Add("Hit", new HandlerInfo
+            {
+                HandlerInstance = new HitCommandHandler(),
+                PacketType = typeof(C_HitPacket)
             });
         }
 
@@ -263,6 +274,7 @@ namespace Server
                             X = player.x,
                             Y = player.y,
                             Z = player.z,
+                            Angle = player.angle
                         };
 
                         await SendAllClientAsync(packet);
@@ -270,6 +282,7 @@ namespace Server
                         player.prevX = player.x;
                         player.prevY = player.y;
                         player.prevZ = player.z;
+                        player.preAngle = player.angle;
                     }
                 }
 
@@ -322,7 +335,6 @@ namespace Server
             }
 
             await Task.WhenAll(sendTasks);
-            Console.WriteLine($"[전송 완료]");
         }
 
         //전체에게 broadcast

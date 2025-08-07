@@ -1,4 +1,4 @@
-﻿using SharedPacketLib;
+﻿using SharedPacket;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,6 +24,7 @@ namespace Server
             player.x += direction.X * moveSpeed * deltaTime;
             player.y += direction.Y * moveSpeed * deltaTime;
             player.z += direction.Z * moveSpeed * deltaTime;
+            player.angle = packet.Angle;
 
             // 서버 플레이어 위치 갱신(옵션)
             //if (server.players.TryGetValue(id, out var player))

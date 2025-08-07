@@ -5,7 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using MessagePack;
-using SharedPacketLib;
+using SharedPacket;
 
 namespace Server
 {
